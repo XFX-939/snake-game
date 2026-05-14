@@ -12,6 +12,7 @@ import { normalizePlayerName, validatePlayerName } from './utils/validatePlayerN
 
 export default function App() {
   const [playerName, setPlayerName] = useState('');
+  const [namePromptValue, setNamePromptValue] = useState('');
   const lastValidPlayerNameRef = useRef('');
   const [leaderboardScores, setLeaderboardScores] = useState<SnakeScore[]>([]);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
@@ -42,7 +43,10 @@ export default function App() {
     submitCurrentScore,
   } = useSnakeGame({
     canStartGame: playerNameValidation.isValid,
-    onStartBlocked: () => setIsNamePromptOpen(true),
+    onStartBlocked: () => {
+      setNamePromptValue(playerName);
+      setIsNamePromptOpen(true);
+    },
   });
 
   const loadLeaderboard = useCallback(async () => {
@@ -145,31 +149,85 @@ export default function App() {
 
       <NameRequiredDialog
         visible={isNamePromptOpen}
-        message={playerNameValidation.message}
+        value={namePromptValue}
+        onChange={setNamePromptValue}
         onClose={() => setIsNamePromptOpen(false)}
+        onConfirm={() => {
+          const normalized = normalizePlayerName(namePromptValue);
+          const validation = validatePlayerName(normalized);
+
+          if (!validation.isValid) {
+            return;
+          }
+
+          setPlayerName(normalized);
+          lastValidPlayerNameRef.current = normalized;
+          setIsNamePromptOpen(false);
+          window.setTimeout(() => start(), 0);
+        }}
       />
     </main>
   );
 }
 
-function NameRequiredDialog({ visible, message, onClose }: { visible: boolean; message: string; onClose: () => void }) {
+function NameRequiredDialog({
+  visible,
+  value,
+  onChange,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const validation = validatePlayerName(value);
+
   if (!visible) {
     return null;
   }
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-lg border border-cyan-300/30 bg-slate-900 p-5 text-center shadow-2xl shadow-cyan-950/40">
+      <form
+        className="w-full max-w-sm rounded-lg border border-cyan-300/30 bg-slate-900 p-5 text-center shadow-2xl shadow-cyan-950/40"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfirm();
+        }}
+      >
         <h2 className="text-xl font-black text-white">请先输入昵称</h2>
-        <p className="mt-3 text-sm text-slate-300">{message || '昵称长度需为 2 到 12 个字符'}</p>
-        <p className="mt-2 text-xs text-slate-400">昵称只允许中文、英文、数字、下划线。</p>
-        <button
-          className="mt-5 h-11 w-full rounded-md bg-cyan-400 font-black text-slate-950 transition hover:bg-cyan-300 active:scale-[0.98]"
-          onClick={onClose}
-        >
-          去输入昵称
-        </button>
-      </div>
+        <input
+          autoFocus
+          className="mt-4 h-12 w-full rounded-md border border-slate-700 bg-slate-950/70 px-4 text-center text-base font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300"
+          value={value}
+          maxLength={12}
+          placeholder="输入昵称"
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <p className={`mt-2 text-xs ${validation.isValid ? 'text-cyan-300/80' : 'text-orange-300'}`}>
+          {validation.message}
+        </p>
+        <p className="mt-1 text-xs text-slate-400">昵称只允许中文、英文、数字、下划线。</p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            className="h-11 rounded-md border border-slate-700 bg-slate-800 font-black text-slate-200 transition hover:bg-slate-700 active:scale-[0.98]"
+            onClick={onClose}
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            className="h-11 rounded-md bg-cyan-400 font-black text-slate-950 transition hover:bg-cyan-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            disabled={!validation.isValid}
+          >
+            开始游戏
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
