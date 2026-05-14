@@ -3,11 +3,10 @@ import { validatePlayerName } from '../utils/validatePlayerName';
 
 interface PlayerNameInputProps {
   value: string;
-  disabled: boolean;
   onChange: (value: string) => void;
 }
 
-export function PlayerNameInput({ value, disabled, onChange }: PlayerNameInputProps) {
+export function PlayerNameInput({ value, onChange }: PlayerNameInputProps) {
   const validation = validatePlayerName(value);
 
   return (
@@ -20,14 +19,13 @@ export function PlayerNameInput({ value, disabled, onChange }: PlayerNameInputPr
         <input
           className="min-h-12 flex-1 rounded-md border border-slate-700 bg-slate-950/70 px-4 text-base font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300 disabled:cursor-not-allowed disabled:text-slate-400"
           value={value}
-          disabled={disabled}
           maxLength={12}
           placeholder="2-12 位中文、英文、数字或下划线"
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
       <p className={`mt-2 text-xs ${validation.isValid ? 'text-cyan-300/80' : 'text-orange-300'}`}>
-        {disabled ? '本局昵称已锁定' : validation.message}
+        {validation.message}
       </p>
     </section>
   );

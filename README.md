@@ -18,7 +18,7 @@ VITE_SUPABASE_URL=xxx
 VITE_SUPABASE_ANON_KEY=xxx
 ```
 
-没有配置 Supabase 环境变量时，游戏本体仍可运行，荣誉榜会显示“荣誉榜暂不可用：缺少 Supabase 环境变量”。
+没有配置 Supabase 环境变量时，游戏本体仍可运行。线上部署可以使用同域名 `/api/scores` 备用排行榜服务，避免 Supabase 不可用时影响荣誉榜。
 
 ## Supabase SQL 初始化
 
@@ -50,3 +50,19 @@ VITE_SUPABASE_ANON_KEY
 ```bash
 npm run build
 ```
+
+## 备用排行榜 API
+
+如果不使用 Supabase，可以在服务器运行：
+
+```bash
+node server/scores-server.mjs
+```
+
+默认监听 `127.0.0.1:8787`，通过 nginx 将 `/api/` 代理到该服务。成绩数据默认保存到：
+
+```text
+/var/www/snake-game-data/scores.json
+```
+
+systemd 示例见 [deploy/snake-scores.service](deploy/snake-scores.service)。

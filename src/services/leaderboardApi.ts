@@ -1,6 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { Difficulty } from '../game/types';
-import { supabase, supabaseUnavailableMessage } from './supabaseClient';
+import { isSupabaseConfigured, supabase } from './supabaseClient';
 
 export interface SnakeScore {
   id: string;
@@ -28,6 +28,7 @@ export type LeaderboardErrorType =
   | 'permission'
   | 'schema'
   | 'duplicate'
+  | 'server-api'
   | 'validation'
   | 'unknown';
 
@@ -47,7 +48,7 @@ const SCORE_COLUMNS = 'id, game_session_id, player_name, score, difficulty, snak
 
 export async function fetchTopScores(): Promise<LeaderboardResult<SnakeScore[]>> {
   if (!supabase) {
-    return { data: null, error: { type: 'missing-env', message: supabaseUnavailableMessage } };
+    return fetchTopScoresFromServer();
   }
 
   let response;
@@ -73,7 +74,8 @@ export async function fetchTopScores(): Promise<LeaderboardResult<SnakeScore[]>>
 
   if (error) {
     logSupabaseError('读取 TOP10 失败', error);
-    return { data: null, error: normalizeSupabaseError(error, '读取 TOP10 失败') };
+    console.error('Supabase 荣誉榜不可用，尝试备用排行榜 API。');
+    return fetchTopScoresFromServer(normalizeSupabaseError(error, '读取 TOP10 失败'));
   }
 
   return { data: data ?? [], error: null };
@@ -85,7 +87,7 @@ export async function submitScore(payload: SubmitScorePayload): Promise<Leaderbo
   }
 
   if (!supabase) {
-    return { data: null, error: { type: 'missing-env', message: supabaseUnavailableMessage } };
+    return submitScoreToServer(payload);
   }
 
   let response;
@@ -127,10 +129,95 @@ export async function submitScore(payload: SubmitScorePayload): Promise<Leaderbo
       };
     }
 
-    return { data: null, error: normalizeSupabaseError(error, '提交成绩失败') };
+    console.error('Supabase 成绩提交不可用，尝试备用排行榜 API。');
+    return submitScoreToServer(payload, normalizeSupabaseError(error, '提交成绩失败'));
   }
 
   return { data, error: null };
+}
+
+async function fetchTopScoresFromServer(fallbackError?: LeaderboardApiError): Promise<LeaderboardResult<SnakeScore[]>> {
+  try {
+    const response = await fetch('/api/scores', {
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const message = await readServerError(response);
+      console.error('备用排行榜 API 读取失败', { status: response.status, message, fallbackError });
+      return {
+        data: null,
+        error: {
+          type: 'server-api',
+          message: `${fallbackError?.message ?? '荣誉榜暂不可用'}；备用排行榜服务读取失败：${message}`,
+        },
+      };
+    }
+
+    const data = await response.json();
+    return { data: normalizeServerScores(data), error: null };
+  } catch (error) {
+    console.error('备用排行榜 API 连接失败', { error, fallbackError });
+    return {
+      data: null,
+      error: {
+        type: isSupabaseConfigured ? 'connection' : 'server-api',
+        message: `${fallbackError?.message ?? '荣誉榜暂不可用'}；备用排行榜服务连接失败`,
+      },
+    };
+  }
+}
+
+async function submitScoreToServer(
+  payload: SubmitScorePayload,
+  fallbackError?: LeaderboardApiError,
+): Promise<LeaderboardResult<SnakeScore | null>> {
+  try {
+    const response = await fetch('/api/scores', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        game_session_id: payload.game_session_id,
+        player_name: payload.player_name,
+        score: payload.score,
+        difficulty: payload.difficulty,
+        snake_length: payload.snake_length,
+        duration_seconds: payload.duration_seconds,
+      }),
+    });
+
+    if (response.status === 409) {
+      return { data: null, error: { type: 'duplicate', message: '本局成绩已提交' } };
+    }
+
+    if (!response.ok) {
+      const message = await readServerError(response);
+      console.error('备用排行榜 API 提交失败', { status: response.status, message, fallbackError });
+      return {
+        data: null,
+        error: {
+          type: 'server-api',
+          message: `${fallbackError?.message ?? '提交成绩失败'}；备用排行榜服务提交失败：${message}`,
+        },
+      };
+    }
+
+    const data = await response.json();
+    return { data: normalizeServerScore(data), error: null };
+  } catch (error) {
+    console.error('备用排行榜 API 提交连接失败', { error, fallbackError });
+    return {
+      data: null,
+      error: {
+        type: isSupabaseConfigured ? 'connection' : 'server-api',
+        message: `${fallbackError?.message ?? '提交成绩失败'}；备用排行榜服务连接失败`,
+      },
+    };
+  }
 }
 
 function logSupabaseError(context: string, error: PostgrestError) {
@@ -184,4 +271,36 @@ function withSupabaseMeta(error: PostgrestError, type: LeaderboardErrorType, mes
 
 function isDuplicateKeyError(error: PostgrestError): boolean {
   return error.code === '23505' || /duplicate key/i.test(error.message);
+}
+
+async function readServerError(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    return typeof body?.error === 'string' ? body.error : response.statusText;
+  } catch {
+    return response.statusText || '未知错误';
+  }
+}
+
+function normalizeServerScores(data: unknown): SnakeScore[] {
+  return Array.isArray(data) ? data.map(normalizeServerScore).filter(Boolean) : [];
+}
+
+function normalizeServerScore(data: unknown): SnakeScore {
+  const score = data as Partial<SnakeScore>;
+
+  return {
+    id: String(score.id ?? ''),
+    game_session_id: String(score.game_session_id ?? ''),
+    player_name: String(score.player_name ?? '玩家'),
+    score: Number(score.score ?? 0),
+    difficulty: isDifficulty(score.difficulty) ? score.difficulty : 'normal',
+    snake_length: Number(score.snake_length ?? 3),
+    duration_seconds: Number(score.duration_seconds ?? 0),
+    created_at: String(score.created_at ?? new Date().toISOString()),
+  };
+}
+
+function isDifficulty(value: unknown): value is Difficulty {
+  return value === 'normal' || value === 'hard' || value === 'hell';
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameCanvas } from './components/GameCanvas';
 import { GameControls } from './components/GameControls';
 import { GameHeader } from './components/GameHeader';
@@ -12,15 +12,17 @@ import { normalizePlayerName, validatePlayerName } from './utils/validatePlayerN
 
 export default function App() {
   const [playerName, setPlayerName] = useState('玩家01');
-  const [lockedPlayerName, setLockedPlayerName] = useState('玩家01');
+  const lastValidPlayerNameRef = useRef('玩家01');
   const [leaderboardScores, setLeaderboardScores] = useState<SnakeScore[]>([]);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState<LeaderboardApiError | null>(null);
   const playerNameValidation = validatePlayerName(playerName);
 
-  const lockPlayerNameForSession = useCallback(() => {
-    setLockedPlayerName(normalizePlayerName(playerName));
-  }, [playerName]);
+  useEffect(() => {
+    if (playerNameValidation.isValid) {
+      lastValidPlayerNameRef.current = normalizePlayerName(playerName);
+    }
+  }, [playerName, playerNameValidation.isValid]);
 
   const {
     state,
@@ -38,7 +40,6 @@ export default function App() {
     submitCurrentScore,
   } = useSnakeGame({
     canStartGame: playerNameValidation.isValid,
-    onGameSessionStart: lockPlayerNameForSession,
   });
 
   const loadLeaderboard = useCallback(async () => {
@@ -60,7 +61,7 @@ export default function App() {
     const result = await submitCurrentScore(async (payload) => {
       const submitResult = await submitScore({
         ...payload,
-        player_name: lockedPlayerName,
+        player_name: lastValidPlayerNameRef.current,
       });
 
       if (submitResult.error && submitResult.error.type !== 'duplicate') {
@@ -71,7 +72,7 @@ export default function App() {
     if (!result.skipped) {
       await loadLeaderboard();
     }
-  }, [loadLeaderboard, lockedPlayerName, submitCurrentScore]);
+  }, [loadLeaderboard, submitCurrentScore]);
 
   useEffect(() => {
     void loadLeaderboard();
@@ -83,7 +84,6 @@ export default function App() {
     }
   }, [state.status, state.score, currentGameId, submitCurrentGameScore]);
 
-  const isNameLocked = state.status === 'running' || state.status === 'paused';
   const requiresValidName = !playerNameValidation.isValid;
 
   return (
@@ -91,7 +91,7 @@ export default function App() {
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <GameHeader />
 
-        <PlayerNameInput value={playerName} disabled={isNameLocked} onChange={setPlayerName} />
+        <PlayerNameInput value={playerName} onChange={setPlayerName} />
 
         <section className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-3 sm:grid-cols-4">
           <StatusCard label="当前分数" value={state.score} accent="text-cyan-300" />

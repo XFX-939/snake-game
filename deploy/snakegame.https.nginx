@@ -1,6 +1,4 @@
 server {
-    listen 80;
-    listen [::]:80;
     server_name snakegame.xiangfuxing.tech;
 
     root /var/www/snake-game/current;
@@ -27,4 +25,18 @@ server {
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
+
+    listen [::]:443 ssl;
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/snakegame.xiangfuxing.tech/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/snakegame.xiangfuxing.tech/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name snakegame.xiangfuxing.tech;
+    return 301 https://$host$request_uri;
 }

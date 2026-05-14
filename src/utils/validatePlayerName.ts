@@ -25,5 +25,5 @@ export function validatePlayerName(value: string): PlayerNameValidation {
     return { isValid: false, message: '昵称只允许中文、英文、数字、下划线' };
   }
 
-  return { isValid: true, message: '游戏开始后本局昵称会锁定' };
+  return { isValid: true, message: '昵称可随时修改，成绩会使用最近一次合法昵称' };
 }

@@ -1,0 +1,17 @@
+[Unit]
+Description=Snake Game Scores API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+Environment=PORT=8787
+Environment=SNAKE_SCORES_FILE=/var/www/snake-game-data/scores.json
+WorkingDirectory=/var/www/snake-game/server
+ExecStart=/usr/bin/node /var/www/snake-game/server/scores-server.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -50,8 +50,6 @@ export type SnakeSupabaseClient = SupabaseClient<Database>;
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabaseUnavailableMessage = '荣誉榜暂不可用：缺少 Supabase 环境变量';
-
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 if (!isSupabaseConfigured) {
