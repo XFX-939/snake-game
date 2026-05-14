@@ -1,11 +1,11 @@
 import { Crown, Loader2, Medal, Trophy } from 'lucide-react';
 import { DIFFICULTIES } from '../game/constants';
-import type { SnakeScore } from '../services/leaderboardApi';
+import type { LeaderboardApiError, SnakeScore } from '../services/leaderboardApi';
 
 interface LeaderboardProps {
   scores: SnakeScore[];
   isLoading: boolean;
-  error: string | null;
+  error: LeaderboardApiError | null;
   highlightedGameSessionId: string | null;
   onRefresh: () => void;
 }
@@ -22,19 +22,17 @@ export function Leaderboard({ scores, isLoading, error, highlightedGameSessionId
           className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 transition hover:border-cyan-300/70 hover:bg-slate-700 active:scale-[0.98]"
           onClick={onRefresh}
         >
-          刷新
+          重新加载
         </button>
       </div>
 
       {isLoading ? (
         <div className="mt-6 flex min-h-44 items-center justify-center gap-2 text-sm text-slate-300">
           <Loader2 size={18} className="animate-spin text-cyan-300" />
-          loading
+          荣誉榜加载中...
         </div>
       ) : error ? (
-        <div className="mt-5 rounded-md border border-orange-300/30 bg-orange-500/10 p-3 text-sm text-orange-200">
-          {error}
-        </div>
+        <LeaderboardErrorView error={error} onRefresh={onRefresh} />
       ) : scores.length === 0 ? (
         <div className="mt-6 flex min-h-44 items-center justify-center rounded-md border border-slate-800 bg-slate-900/60 text-sm text-slate-400">
           暂无成绩
@@ -57,6 +55,7 @@ export function Leaderboard({ scores, isLoading, error, highlightedGameSessionId
 
 function LeaderboardRow({ score, rank, highlighted }: { score: SnakeScore; rank: number; highlighted: boolean }) {
   const rankStyle = getRankStyle(rank);
+  const difficultyLabel = DIFFICULTIES[score.difficulty]?.label ?? score.difficulty;
 
   return (
     <div
@@ -75,10 +74,27 @@ function LeaderboardRow({ score, rank, highlighted }: { score: SnakeScore; rank:
           {highlighted ? <span className="shrink-0 rounded bg-cyan-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">本局</span> : null}
         </div>
         <p className="mt-1 truncate text-xs text-slate-400">
-          {DIFFICULTIES[score.difficulty].label} · {score.duration_seconds}s · {formatCreatedAt(score.created_at)}
+          {difficultyLabel} · {score.duration_seconds}s · {formatCreatedAt(score.created_at)}
         </p>
       </div>
       <p className="text-right text-lg font-black text-cyan-300">{score.score}</p>
+    </div>
+  );
+}
+
+function LeaderboardErrorView({ error, onRefresh }: { error: LeaderboardApiError; onRefresh: () => void }) {
+  return (
+    <div className="mt-5 rounded-md border border-orange-300/30 bg-orange-500/10 p-3 text-sm text-orange-100">
+      <p className="font-bold">{error.message}</p>
+      {error.code ? <p className="mt-2 text-xs text-orange-200/80">错误代码：{error.code}</p> : null}
+      {error.details ? <p className="mt-1 text-xs text-orange-200/80">详情：{error.details}</p> : null}
+      {error.hint ? <p className="mt-1 text-xs text-orange-200/80">提示：{error.hint}</p> : null}
+      <button
+        className="mt-3 h-10 w-full rounded-md border border-orange-300/50 bg-orange-300/10 font-bold text-orange-100 transition hover:bg-orange-300/20 active:scale-[0.98]"
+        onClick={onRefresh}
+      >
+        重新加载
+      </button>
     </div>
   );
 }
@@ -116,10 +132,16 @@ function getRankStyle(rank: number) {
 }
 
 function formatCreatedAt(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '时间未知';
+  }
+
   return new Intl.DateTimeFormat('zh-CN', {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(value));
+  }).format(date);
 }

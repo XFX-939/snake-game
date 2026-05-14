@@ -7,7 +7,7 @@ import { GameOverlay } from './components/GameOverlay';
 import { PlayerNameInput } from './components/PlayerNameInput';
 import { DIFFICULTIES, STATUS_LABELS } from './game/constants';
 import { useSnakeGame } from './game/useSnakeGame';
-import { fetchTopScores, submitScore, type SnakeScore } from './services/leaderboardApi';
+import { fetchTopScores, submitScore, type LeaderboardApiError, type SnakeScore } from './services/leaderboardApi';
 import { normalizePlayerName, validatePlayerName } from './utils/validatePlayerName';
 
 export default function App() {
@@ -15,7 +15,7 @@ export default function App() {
   const [lockedPlayerName, setLockedPlayerName] = useState('玩家01');
   const [leaderboardScores, setLeaderboardScores] = useState<SnakeScore[]>([]);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
-  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  const [leaderboardError, setLeaderboardError] = useState<LeaderboardApiError | null>(null);
   const playerNameValidation = validatePlayerName(playerName);
 
   const lockPlayerNameForSession = useCallback(() => {
@@ -45,21 +45,27 @@ export default function App() {
     setIsLeaderboardLoading(true);
     setLeaderboardError(null);
 
-    try {
-      setLeaderboardScores(await fetchTopScores());
-    } catch (error) {
-      setLeaderboardError(error instanceof Error ? error.message : '读取 TOP10 失败。');
-    } finally {
-      setIsLeaderboardLoading(false);
+    const result = await fetchTopScores();
+    if (result.error) {
+      setLeaderboardScores([]);
+      setLeaderboardError(result.error);
+    } else {
+      setLeaderboardScores(result.data);
     }
+
+    setIsLeaderboardLoading(false);
   }, []);
 
   const submitCurrentGameScore = useCallback(async () => {
     const result = await submitCurrentScore(async (payload) => {
-      await submitScore({
+      const submitResult = await submitScore({
         ...payload,
         player_name: lockedPlayerName,
       });
+
+      if (submitResult.error && submitResult.error.type !== 'duplicate') {
+        throw new Error(submitResult.error.message);
+      }
     });
 
     if (!result.skipped) {
