@@ -11,8 +11,8 @@ import { fetchTopScores, submitScore, type LeaderboardApiError, type SnakeScore 
 import { normalizePlayerName, validatePlayerName } from './utils/validatePlayerName';
 
 export default function App() {
-  const [playerName, setPlayerName] = useState('玩家01');
-  const lastValidPlayerNameRef = useRef('玩家01');
+  const [playerName, setPlayerName] = useState('');
+  const lastValidPlayerNameRef = useRef('');
   const [leaderboardScores, setLeaderboardScores] = useState<SnakeScore[]>([]);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState<LeaderboardApiError | null>(null);
