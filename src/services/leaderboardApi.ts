@@ -58,7 +58,7 @@ export async function fetchTopScores(): Promise<LeaderboardResult<SnakeScore[]>>
       .select(SCORE_COLUMNS)
       .order('score', { ascending: false })
       .order('created_at', { ascending: true })
-      .limit(10);
+      .limit(1000);
   } catch (error) {
     console.error('读取 TOP10 网络异常', error);
     return {
@@ -78,7 +78,7 @@ export async function fetchTopScores(): Promise<LeaderboardResult<SnakeScore[]>>
     return fetchTopScoresFromServer(normalizeSupabaseError(error, '读取 TOP10 失败'));
   }
 
-  return { data: data ?? [], error: null };
+  return { data: rankBestScoreByPlayer(data ?? []), error: null };
 }
 
 export async function submitScore(payload: SubmitScorePayload): Promise<LeaderboardResult<SnakeScore | null>> {
@@ -273,6 +273,36 @@ function isDuplicateKeyError(error: PostgrestError): boolean {
   return error.code === '23505' || /duplicate key/i.test(error.message);
 }
 
+function rankBestScoreByPlayer(scores: SnakeScore[]): SnakeScore[] {
+  const bestByPlayer = new Map<string, SnakeScore>();
+
+  for (const score of scores) {
+    const playerKey = score.player_name.trim().toLocaleLowerCase();
+    const currentBest = bestByPlayer.get(playerKey);
+
+    if (!currentBest || isBetterLeaderboardScore(score, currentBest)) {
+      bestByPlayer.set(playerKey, score);
+    }
+  }
+
+  return [...bestByPlayer.values()]
+    .sort((a, b) => b.score - a.score || parseCreatedAt(a.created_at) - parseCreatedAt(b.created_at))
+    .slice(0, 10);
+}
+
+function isBetterLeaderboardScore(candidate: SnakeScore, currentBest: SnakeScore): boolean {
+  if (candidate.score !== currentBest.score) {
+    return candidate.score > currentBest.score;
+  }
+
+  return parseCreatedAt(candidate.created_at) < parseCreatedAt(currentBest.created_at);
+}
+
+function parseCreatedAt(value: string): number {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
+}
+
 async function readServerError(response: Response): Promise<string> {
   try {
     const body = await response.json();
@@ -283,7 +313,8 @@ async function readServerError(response: Response): Promise<string> {
 }
 
 function normalizeServerScores(data: unknown): SnakeScore[] {
-  return Array.isArray(data) ? data.map(normalizeServerScore).filter(Boolean) : [];
+  const scores = Array.isArray(data) ? data.map(normalizeServerScore).filter(Boolean) : [];
+  return rankBestScoreByPlayer(scores);
 }
 
 function normalizeServerScore(data: unknown): SnakeScore {

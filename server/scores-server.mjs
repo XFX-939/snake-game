@@ -90,9 +90,37 @@ async function writeScores(scores) {
 }
 
 function topScores(scores) {
-  return [...scores]
+  return [...bestScoresByPlayer(scores)]
     .sort((a, b) => b.score - a.score || new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     .slice(0, 10);
+}
+
+function bestScoresByPlayer(scores) {
+  const bestByPlayer = new Map();
+
+  for (const score of scores) {
+    const playerKey = score.player_name.trim().toLocaleLowerCase();
+    const currentBest = bestByPlayer.get(playerKey);
+
+    if (!currentBest || isBetterScore(score, currentBest)) {
+      bestByPlayer.set(playerKey, score);
+    }
+  }
+
+  return bestByPlayer.values();
+}
+
+function isBetterScore(candidate, currentBest) {
+  if (candidate.score !== currentBest.score) {
+    return candidate.score > currentBest.score;
+  }
+
+  return parseCreatedAt(candidate.created_at) < parseCreatedAt(currentBest.created_at);
+}
+
+function parseCreatedAt(value) {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
 }
 
 function readJsonBody(req) {
