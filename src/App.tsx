@@ -16,6 +16,7 @@ export default function App() {
   const [leaderboardScores, setLeaderboardScores] = useState<SnakeScore[]>([]);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState<LeaderboardApiError | null>(null);
+  const [isGameOverDialogOpen, setIsGameOverDialogOpen] = useState(false);
   const playerNameValidation = validatePlayerName(playerName);
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function App() {
 
   useEffect(() => {
     if (state.status === 'gameOver') {
+      setIsGameOverDialogOpen(true);
       void submitCurrentGameScore();
     }
   }, [state.status, state.score, currentGameId, submitCurrentGameScore]);
@@ -128,7 +130,7 @@ export default function App() {
       </div>
 
       <GameOverlay
-        visible={state.status === 'gameOver'}
+        visible={state.status === 'gameOver' && isGameOverDialogOpen}
         score={state.score}
         highScore={highScore}
         hasSubmittedCurrentGame={hasSubmittedCurrentGame}
@@ -136,6 +138,7 @@ export default function App() {
         submitError={submitError}
         onRetrySubmit={submitCurrentGameScore}
         onRestart={() => restart()}
+        onClose={() => setIsGameOverDialogOpen(false)}
       />
     </main>
   );

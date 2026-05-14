@@ -1,4 +1,4 @@
-import { Trophy } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
 
 interface GameOverlayProps {
   score: number;
@@ -9,6 +9,7 @@ interface GameOverlayProps {
   submitError: string | null;
   onRestart: () => void;
   onRetrySubmit: () => void;
+  onClose: () => void;
 }
 
 export function GameOverlay({
@@ -20,6 +21,7 @@ export function GameOverlay({
   submitError,
   onRestart,
   onRetrySubmit,
+  onClose,
 }: GameOverlayProps) {
   if (!visible) {
     return null;
@@ -27,7 +29,14 @@ export function GameOverlay({
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-950/78 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-lg border border-orange-300/30 bg-slate-900 p-6 text-center shadow-2xl shadow-orange-950/40">
+      <div className="relative w-full max-w-sm rounded-lg border border-orange-300/30 bg-slate-900 p-6 text-center shadow-2xl shadow-orange-950/40">
+        <button
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-md border border-slate-700 bg-slate-950/70 text-slate-300 transition hover:border-cyan-300/60 hover:text-white active:scale-95"
+          aria-label="关闭弹窗"
+          onClick={onClose}
+        >
+          <X size={18} />
+        </button>
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange-400 text-slate-950 shadow-lg shadow-orange-500/30">
           <Trophy size={28} />
         </div>
@@ -63,13 +72,21 @@ export function GameOverlay({
             <p className="text-slate-400">等待提交成绩</p>
           )}
         </div>
-        <button
-          className="mt-6 h-12 w-full rounded-md bg-emerald-500 font-black text-slate-950 transition hover:bg-emerald-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
-          disabled={isSubmittingScore}
-          onClick={onRestart}
-        >
-          再来一局
-        </button>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            className="h-12 rounded-md border border-cyan-300/40 bg-slate-800 font-black text-cyan-100 transition hover:bg-slate-700 active:scale-[0.98]"
+            onClick={onClose}
+          >
+            查看荣誉榜
+          </button>
+          <button
+            className="h-12 rounded-md bg-emerald-500 font-black text-slate-950 transition hover:bg-emerald-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            disabled={isSubmittingScore}
+            onClick={onRestart}
+          >
+            再来一局
+          </button>
+        </div>
       </div>
     </div>
   );
