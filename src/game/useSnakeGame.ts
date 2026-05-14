@@ -6,6 +6,7 @@ import type { Difficulty, Direction, GameState } from './types';
 interface UseSnakeGameOptions {
   canStartGame: boolean;
   onGameSessionStart?: () => void;
+  onStartBlocked?: () => void;
 }
 
 interface SubmitCurrentScorePayload {
@@ -29,7 +30,7 @@ function readHighScore(): number {
   return Number.isFinite(value) ? value : 0;
 }
 
-export function useSnakeGame({ canStartGame, onGameSessionStart }: UseSnakeGameOptions) {
+export function useSnakeGame({ canStartGame, onGameSessionStart, onStartBlocked }: UseSnakeGameOptions) {
   const [state, setState] = useState<GameState>(() => createInitialState('normal'));
   const [highScore, setHighScore] = useState<number>(() => readHighScore());
   const [currentGameId, setCurrentGameId] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export function useSnakeGame({ canStartGame, onGameSessionStart }: UseSnakeGameO
   const stateRef = useRef(state);
   const canStartGameRef = useRef(canStartGame);
   const onGameSessionStartRef = useRef(onGameSessionStart);
+  const onStartBlockedRef = useRef(onStartBlocked);
   const currentGameIdRef = useRef(currentGameId);
   const startedAtRef = useRef(startedAt);
   const endedAtRef = useRef(endedAt);
@@ -60,6 +62,10 @@ export function useSnakeGame({ canStartGame, onGameSessionStart }: UseSnakeGameO
   useEffect(() => {
     onGameSessionStartRef.current = onGameSessionStart;
   }, [onGameSessionStart]);
+
+  useEffect(() => {
+    onStartBlockedRef.current = onStartBlocked;
+  }, [onStartBlocked]);
 
   useEffect(() => {
     currentGameIdRef.current = currentGameId;
@@ -106,6 +112,9 @@ export function useSnakeGame({ canStartGame, onGameSessionStart }: UseSnakeGameO
 
   const beginNewSession = useCallback((difficulty: Difficulty) => {
     if (!canStartGameRef.current || isSubmittingScoreRef.current) {
+      if (!canStartGameRef.current) {
+        onStartBlockedRef.current?.();
+      }
       return false;
     }
 

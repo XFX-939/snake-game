@@ -17,6 +17,7 @@ export default function App() {
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState<LeaderboardApiError | null>(null);
   const [isGameOverDialogOpen, setIsGameOverDialogOpen] = useState(false);
+  const [isNamePromptOpen, setIsNamePromptOpen] = useState(false);
   const playerNameValidation = validatePlayerName(playerName);
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function App() {
     submitCurrentScore,
   } = useSnakeGame({
     canStartGame: playerNameValidation.isValid,
+    onStartBlocked: () => setIsNamePromptOpen(true),
   });
 
   const loadLeaderboard = useCallback(async () => {
@@ -109,8 +111,8 @@ export default function App() {
             <GameControls
               difficulty={state.difficulty}
               status={state.status}
-              startDisabled={requiresValidName || isSubmittingScore}
-              restartDisabled={requiresValidName || isSubmittingScore}
+              startDisabled={isSubmittingScore}
+              restartDisabled={isSubmittingScore}
               onStart={start}
               onPause={togglePause}
               onRestart={() => restart()}
@@ -140,7 +142,35 @@ export default function App() {
         onRestart={() => restart()}
         onClose={() => setIsGameOverDialogOpen(false)}
       />
+
+      <NameRequiredDialog
+        visible={isNamePromptOpen}
+        message={playerNameValidation.message}
+        onClose={() => setIsNamePromptOpen(false)}
+      />
     </main>
+  );
+}
+
+function NameRequiredDialog({ visible, message, onClose }: { visible: boolean; message: string; onClose: () => void }) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-lg border border-cyan-300/30 bg-slate-900 p-5 text-center shadow-2xl shadow-cyan-950/40">
+        <h2 className="text-xl font-black text-white">请先输入昵称</h2>
+        <p className="mt-3 text-sm text-slate-300">{message || '昵称长度需为 2 到 12 个字符'}</p>
+        <p className="mt-2 text-xs text-slate-400">昵称只允许中文、英文、数字、下划线。</p>
+        <button
+          className="mt-5 h-11 w-full rounded-md bg-cyan-400 font-black text-slate-950 transition hover:bg-cyan-300 active:scale-[0.98]"
+          onClick={onClose}
+        >
+          去输入昵称
+        </button>
+      </div>
+    </div>
   );
 }
 
